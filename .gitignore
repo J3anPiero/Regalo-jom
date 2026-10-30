@@ -1,0 +1,6 @@
+# Copia local de Leaflet que no se usa (la página lo carga desde internet)
+dist/
+leaflet.zip
+
+# Configuración local de Claude
+.claude/

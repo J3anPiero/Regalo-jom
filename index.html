@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nuestro Viaje Juntos ❤️</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Leaflet CSS (Mapas Gratuitos) -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@400;700&family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+
+    <!-- AOS (Animaciones) -->
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            scroll-behavior: smooth;
+        }
+        .font-romantic {
+            font-family: 'Dancing Script', cursive;
+        }
+        #map {
+            height: 500px;
+            width: 100%;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            z-index: 1;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -9px;
+            top: 0;
+            width: 18px;
+            height: 18px;
+            background: #f472b6;
+            border-radius: 50%;
+            border: 4px solid white;
+        }
+        .polaroid {
+            background: white;
+            padding: 10px 10px 30px 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.3s ease;
+        }
+        .polaroid:hover {
+            transform: rotate(-2deg) scale(1.05);
+        }
+        .star-btn {
+            font-size: 1.75rem;
+            line-height: 1;
+            color: #e5e7eb;
+            transition: transform 0.15s ease, color 0.15s ease;
+        }
+        .star-btn.active {
+            color: #f59e0b;
+        }
+        .star-btn:hover {
+            transform: scale(1.2);
+        }
+        /* Modo edición */
+        .edit-only {
+            display: none !important;
+        }
+        body.editing .edit-only {
+            display: flex !important;
+        }
+        body.editing [data-editable] {
+            outline: 2px dashed #fda4af;
+            outline-offset: 4px;
+            border-radius: 6px;
+            cursor: text;
+        }
+        body.editing [data-editable]:focus {
+            outline-color: #e11d48;
+        }
+        body.editing [data-photo-key] {
+            cursor: pointer;
+            outline: 3px dashed #fda4af;
+        }
+    </style>
+</head>
+<body class="bg-rose-50 text-gray-800 flex">
+
+    <!-- Sidebar Navigation -->
+    <nav id="sidebar" class="fixed top-0 left-0 h-screen w-64 bg-rose-100 border-r border-rose-200 flex flex-col p-6 transition-transform -translate-x-full md:translate-x-0 z-50">
+        <div class="text-center mb-10">
+            <h2 class="text-3xl font-romantic text-rose-600">Nuestro Viaje</h2>
+        </div>
+        <ul class="space-y-4 flex-1">
+            <li>
+                <a href="#" onclick="switchSection('hero')" class="nav-link flex items-center p-3 rounded-xl transition-all duration-300 bg-rose-500 text-white shadow-md" data-section="hero">
+                    <span class="mr-3">🏠</span> Inicio
+                </a>
+            </li>
+            <li>
+                <a href="#" onclick="switchSection('story')" class="nav-link flex items-center p-3 rounded-xl transition-all duration-300 text-rose-600 hover:bg-rose-200" data-section="story">
+                    <span class="mr-3">📖</span> Nuestra Historia
+                </a>
+            </li>
+            <li>
+                <a href="#" onclick="switchSection('map-section')" class="nav-link flex items-center p-3 rounded-xl transition-all duration-300 text-rose-600 hover:bg-rose-200" data-section="map-section">
+                    <span class="mr-3">🗺️</span> Nuestras Huellas
+                </a>
+            </li>
+            <li>
+                <a href="#" onclick="switchSection('gallery')" class="nav-link flex items-center p-3 rounded-xl transition-all duration-300 text-rose-600 hover:bg-rose-200" data-section="gallery">
+                    <span class="mr-3">📸</span> Momentos Felices
+                </a>
+            </li>
+            <li>
+                <a href="#" onclick="switchSection('wishes')" class="nav-link flex items-center p-3 rounded-xl transition-all duration-300 text-rose-600 hover:bg-rose-200" data-section="wishes">
+                    <span class="mr-3">✨</span> Mis Deseos
+                </a>
+            </li>
+            <li>
+                <a href="#" onclick="switchSection('final')" class="nav-link flex items-center p-3 rounded-xl transition-all duration-300 text-rose-600 hover:bg-rose-200" data-section="final">
+                    <span class="mr-3">💌</span> Para Ti
+                </a>
+            </li>
+        </ul>
+        <button id="btn-edit-mode" class="mb-4 w-full p-3 rounded-xl border-2 border-dashed border-rose-300 text-rose-600 font-semibold hover:bg-rose-200 transition-all">
+            ✏️ Modo edición
+        </button>
+        <p id="sync-status" class="text-xs text-rose-500 text-center mb-1 break-words"></p>
+        <button id="btn-logout" class="hidden text-xs text-rose-400 underline mb-4 mx-auto">Cerrar sesión</button>
+        <div class="mt-auto text-center text-rose-400 text-sm italic">
+            Hecho con ❤️
+        </div>
+    </nav>
+
+    <!-- Mobile Menu Toggle -->
+    <button id="menu-toggle" class="fixed top-4 left-4 z-[60] md:hidden bg-rose-500 text-white p-2 rounded-full shadow-lg">
+        ☰
+    </button>
+
+    <!-- Main Content Area -->
+    <main id="main-content" class="flex-1 ml-0 md:ml-64 transition-all duration-300">
+
+        <!-- Section 1: Hero -->
+        <section id="hero" class="content-section relative h-screen flex items-center justify-center overflow-hidden bg-rose-200">
+            <div class="absolute inset-0 z-0">
+                <!-- Fondo con imagen (Sustituir src por imagen real) -->
+                <img src="https://images.unsplash.com/photo-1518199266791-5375a8312fcb?auto=format&fit=crop&q=80&w=2000"
+                     alt="Fondo Romántico" class="w-full h-full object-cover opacity-60">
+            </div>
+            <div class="relative z-10 text-center px-4" data-aos="zoom-in" data-aos-duration="2000">
+                <h1 data-editable="hero-title" class="text-6xl md:text-8xl font-romantic text-rose-600 mb-4 drop-shadow-lg">
+                    Nuestro Viaje Juntos
+                </h1>
+                <p data-editable="hero-subtitle" class="text-xl md:text-2xl text-rose-500 font-light italic mb-8">
+                    Una historia escrita con el corazón...
+                </p>
+                <button onclick="switchSection('story')" class="bg-rose-500 text-white px-8 py-3 rounded-full font-semibold hover:bg-rose-600 transition-all shadow-lg hover:shadow-rose-300/50">
+                    Empezar el viaje ↓
+                </button>
+            </div>
+        </section>
+
+    <!-- Section 2: Our Story (Timeline) -->
+    <section id="story" class="content-section hidden py-20 px-4 max-w-4xl mx-auto">
+        <h2 class="text-5xl font-romantic text-center text-rose-600 mb-16" data-aos="fade-up">
+            Nuestra Historia
+        </h2>
+
+        <!-- Contador de Tiempo Juntos -->
+        <div class="mb-20 text-center" data-aos="zoom-in">
+            <p data-editable="timer-label" class="text-rose-500 font-semibold uppercase tracking-widest mb-4">Llevamos amándonos durante:</p>
+            <div id="timer" class="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-3xl mx-auto">
+                <div class="bg-white p-4 rounded-2xl shadow-md border-b-4 border-rose-400">
+                    <span id="days" class="block text-4xl font-bold text-rose-600">0</span>
+                    <span class="text-gray-500 text-sm uppercase">Días</span>
+                </div>
+                <div class="bg-white p-4 rounded-2xl shadow-md border-b-4 border-rose-400">
+                    <span id="hours" class="block text-4xl font-bold text-rose-600">0</span>
+                    <span class="text-gray-500 text-sm uppercase">Horas</span>
+                </div>
+                <div class="bg-white p-4 rounded-2xl shadow-md border-b-4 border-rose-400">
+                    <span id="minutes" class="block text-4xl font-bold text-rose-600">0</span>
+                    <span class="text-gray-500 text-sm uppercase">Minutos</span>
+                </div>
+                <div class="bg-white p-4 rounded-2xl shadow-md border-b-4 border-rose-400">
+                    <span id="seconds" class="block text-4xl font-bold text-rose-600">0</span>
+                    <span class="text-gray-500 text-sm uppercase">Segundos</span>
+                </div>
+            </div>
+            <p id="start-date-label" class="text-gray-500 text-sm mt-4 italic"></p>
+            <div class="edit-only justify-center items-center gap-2 mt-3">
+                <label for="start-date-input" class="text-sm font-semibold text-gray-600">Día que comenzamos:</label>
+                <input type="datetime-local" id="start-date-input" class="p-2 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400">
+            </div>
+        </div>
+
+        <div class="flex justify-center mb-12">
+            <button id="btn-add-story" class="bg-rose-500 text-white px-6 py-2 rounded-full font-semibold hover:bg-rose-600 transition-all shadow-lg flex items-center gap-2">
+                <span>✍️</span> Agregar Historia
+            </button>
+        </div>
+
+        <!-- Las historias se agregan desde el botón (ver script.js) -->
+        <p id="stories-empty" class="text-center text-gray-400 italic">
+            Todavía no hay historias. ¡Escribe la primera!
+        </p>
+        <div id="stories-list" class="relative border-l-4 border-rose-300 ml-4 md:ml-10 pl-8 space-y-12 hidden"></div>
+    </section>
+
+    <!-- Section 3: Interactive Map -->
+    <section id="map-section" class="content-section hidden py-20 bg-rose-100 px-4">
+        <div class="max-w-6xl mx-auto text-center">
+            <h2 class="text-5xl font-romantic text-rose-600 mb-4" data-aos="fade-up">
+                Nuestras Huellas
+            </h2>
+            <p data-editable="map-intro" class="text-gray-600 mb-12 max-w-2xl mx-auto" data-aos="fade-up" data-aos-delay="200">
+                Lugares que han marcado nuestra vida y que siempre llevaremos en el corazón.
+            </p>
+            <div class="flex justify-center mb-8" data-aos="fade-up">
+                <button id="btn-add-location" class="bg-rose-500 text-white px-6 py-2 rounded-full font-semibold hover:bg-rose-600 transition-all shadow-lg flex items-center gap-2">
+                    <span>📍</span> Agregar Lugar Especial
+                </button>
+            </div>
+            <div class="relative" data-aos="zoom-in">
+                <div id="map"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 4: Gallery -->
+    <section id="gallery" class="content-section hidden py-20 px-4 max-w-6xl mx-auto">
+        <h2 class="text-5xl font-romantic text-center text-rose-600 mb-4" data-aos="fade-up">
+            Momentos Felices
+        </h2>
+        <p data-editable="gallery-intro" class="text-center text-gray-600 mb-16" data-aos="fade-up">
+            Lo que comimos en nuestra primera salida. ¡Puntúa cada foto con estrellas!
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+            <!-- Photo 1 -->
+            <div class="polaroid" data-aos="flip-left">
+                <img src="assets/img/chilokos-snack.webp"
+                     alt="Snack preparado en Chilokos" data-photo-key="photo-1" class="w-full h-64 object-cover mb-4">
+                <p data-editable="photo-1-caption" class="font-romantic text-center text-xl text-gray-700">Nuestro snack preparado</p>
+                <div class="photo-rating" data-photo-id="chilokos-snack"></div>
+            </div>
+            <!-- Photo 2 -->
+            <div class="polaroid" data-aos="flip-left" data-aos-delay="200">
+                <img src="assets/img/chilokos-bebida-morada.webp"
+                     alt="Bebida morada en Chilokos" data-photo-key="photo-2" class="w-full h-64 object-cover mb-4">
+                <p data-editable="photo-2-caption" class="font-romantic text-center text-xl text-gray-700">La bebida morada</p>
+                <div class="photo-rating" data-photo-id="chilokos-bebida-morada"></div>
+            </div>
+            <!-- Photo 3 -->
+            <div class="polaroid" data-aos="flip-left" data-aos-delay="400">
+                <img src="assets/img/chilokos-bebida-canela.webp"
+                     alt="Bebida con canela en Chilokos" data-photo-key="photo-3" class="w-full h-64 object-cover mb-4">
+                <p data-editable="photo-3-caption" class="font-romantic text-center text-xl text-gray-700">La bebida con canela</p>
+                <div class="photo-rating" data-photo-id="chilokos-bebida-canela"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 5: Nuestros Deseos y Promesas -->
+    <section id="wishes" class="content-section hidden py-20 bg-rose-100 px-4">
+        <div class="max-w-5xl mx-auto text-center">
+            <h2 data-editable="wishes-title" class="text-5xl font-romantic text-rose-600 mb-16" data-aos="fade-up">
+                Mis Deseos para Nosotros
+            </h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Deseo 1 -->
+                <div class="bg-white p-8 rounded-3xl shadow-sm border-2 border-dashed border-rose-300 relative overflow-hidden group hover:bg-rose-50 transition-colors" data-aos="fade-up">
+                    <div class="absolute -top-4 -right-4 text-rose-200 text-6xl font-romantic opacity-50 group-hover:rotate-12 transition-transform">✨</div>
+                    <h3 data-editable="wish-1-title" class="text-2xl font-semibold text-rose-600 mb-3">Siempre Juntos</h3>
+                    <p data-editable="wish-1-text" class="text-gray-600 italic">"Deseo que nunca dejemos de reírnos de las mismas tonterías y que cada día encontremos una razón nueva para elegirnos."</p>
+                </div>
+                <!-- Deseo 2 -->
+                <div class="bg-white p-8 rounded-3xl shadow-sm border-2 border-dashed border-rose-300 relative overflow-hidden group hover:bg-rose-50 transition-colors" data-aos="fade-up" data-aos-delay="200">
+                    <div class="absolute -top-4 -right-4 text-rose-200 text-6xl font-romantic opacity-50 group-hover:rotate-12 transition-transform">❤️</div>
+                    <h3 data-editable="wish-2-title" class="text-2xl font-semibold text-rose-600 mb-3">Aventuras Infinitas</h3>
+                    <p data-editable="wish-2-text" class="text-gray-600 italic">"Prometo que seguiremos llenando nuestro mapa de puntos, visitando lugares que no conocemos y creando recuerdos imborrables."</p>
+                </div>
+                <!-- Deseo 3 -->
+                <div class="bg-white p-8 rounded-3xl shadow-sm border-2 border-dashed border-rose-300 relative overflow-hidden group hover:bg-rose-50 transition-colors" data-aos="fade-up" data-aos-delay="400">
+                    <div class="absolute -top-4 -right-4 text-rose-200 text-6xl font-romantic opacity-50 group-hover:rotate-12 transition-transform">🌟</div>
+                    <h3 data-editable="wish-3-title" class="text-2xl font-semibold text-rose-600 mb-3">Apoyo Incondicional</h3>
+                    <p data-editable="wish-3-text" class="text-gray-600 italic">"Mi deseo es ser siempre tu refugio seguro, la persona que te impulse a volar alto y la que te reciba siempre con los brazos abiertos."</p>
+                </div>
+                <!-- Deseo 4 -->
+                <div class="bg-white p-8 rounded-3xl shadow-sm border-2 border-dashed border-rose-300 relative overflow-hidden group hover:bg-rose-50 transition-colors" data-aos="fade-up" data-aos-delay="600">
+                    <div class="absolute -top-4 -right-4 text-rose-200 text-6xl font-romantic opacity-50 group-hover:rotate-12 transition-transform">🌸</div>
+                    <h3 data-editable="wish-4-title" class="text-2xl font-semibold text-rose-600 mb-3">Amor Eterno</h3>
+                    <p data-editable="wish-4-text" class="text-gray-600 italic">"Que el tiempo pase, pero que el brillo de nuestros ojos al vernos sea siempre el mismo que el primer día."</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Section 6: Final Message -->
+    <section id="final" class="content-section hidden py-32 bg-rose-600 text-white text-center px-4 relative overflow-hidden">
+        <div class="absolute top-0 left-0 w-full h-full opacity-20 pointer-events-none">
+            <!-- Patrón de corazones o similar (opcional) -->
+        </div>
+        <div class="relative z-10" data-aos="fade-up">
+            <h2 data-editable="final-title" class="text-5xl md:text-7xl font-romantic mb-8">Te amo para siempre</h2>
+            <p data-editable="final-text" class="text-xl md:text-2xl font-light italic max-w-2xl mx-auto leading-relaxed opacity-90">
+                "Que este sea solo el primer capítulo de una historia infinita llena de amor, aventuras y felicidad."
+            </p>
+            <div class="mt-12 text-4xl animate-bounce">❤️</div>
+        </div>
+    </section>
+
+    </main>
+
+    <!-- Modal: Add Location -->
+    <div id="modal-location" class="fixed inset-0 z-[100] hidden bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative">
+            <h3 class="text-3xl font-romantic text-rose-600 mb-6 text-center">Nuevo Lugar Especial</h3>
+            <form id="form-location" class="space-y-4">
+                <div class="flex gap-2">
+                    <div class="flex-1">
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">Nombre del Lugar</label>
+                        <input type="text" id="loc-name" required class="w-full p-3 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400" placeholder="Ej: Torre Eiffel">
+                    </div>
+                    <div class="flex items-end pb-1">
+                        <button type="button" id="btn-search-loc" class="bg-rose-100 text-rose-600 p-3 rounded-xl hover:bg-rose-200 transition-all" title="Buscar ubicación">
+                            🔍
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">Latitud</label>
+                        <input type="text" id="loc-lat" required class="w-full p-3 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400" placeholder="40.4167">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold text-gray-600 mb-1">Longitud</label>
+                        <input type="text" id="loc-lng" required class="w-full p-3 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400" placeholder="-3.7037">
+                    </div>
+                </div>
+                <button type="button" id="btn-pick-on-map" class="w-full py-2 rounded-xl bg-rose-50 text-rose-600 font-semibold border border-rose-200 hover:bg-rose-100 transition-all">
+                    🗺️ Elegir en el mapa
+                </button>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-600 mb-1">Descripción</label>
+                    <textarea id="loc-desc" required class="w-full p-3 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400" rows="3" placeholder="Cuenta el recuerdo..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-600 mb-1">URL de la Foto (Opcional)</label>
+                    <input type="url" id="loc-img" class="w-full p-3 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400" placeholder="https://...">
+                </div>
+                <div class="flex gap-4 pt-4">
+                    <button type="button" id="btn-cancel-location" class="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition-all">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="flex-1 py-3 rounded-xl bg-rose-500 text-white font-semibold hover:bg-rose-600 transition-all shadow-lg">
+                        Guardar ❤️
+                    </button>
+                </div>
+            </form>
+            <p class="text-center text-xs text-gray-400 mt-4 italic">
+                Tip: Usa 🔍 para buscar por nombre o "Elegir en el mapa" y haz clic en el lugar.
+            </p>
+        </div>
+    </div>
+
+    <!-- Modal: Add Story -->
+    <div id="modal-story" class="fixed inset-0 z-[100] hidden bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative max-h-[90vh] overflow-y-auto">
+            <h3 id="story-modal-title" class="text-3xl font-romantic text-rose-600 mb-6 text-center">Nueva Historia</h3>
+            <form id="form-story" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-600 mb-1">Etiqueta</label>
+                    <input type="text" id="story-tag" class="w-full p-3 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400" placeholder="Ej: El Comienzo">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-600 mb-1">Título</label>
+                    <input type="text" id="story-title" required class="w-full p-3 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400" placeholder="Ej: Nuestra primera salida">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-600 mb-1">Historia</label>
+                    <textarea id="story-text" required class="w-full p-3 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400" rows="4" placeholder="Cuenta lo que pasó..."></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-600 mb-1">Foto (Opcional)</label>
+                    <input type="file" id="story-img" accept="image/*" class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-rose-100 file:text-rose-600 file:font-semibold hover:file:bg-rose-200">
+                </div>
+                <div class="flex gap-4 pt-4">
+                    <button type="button" id="btn-cancel-story" class="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition-all">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="btn-save-story" class="flex-1 py-3 rounded-xl bg-rose-500 text-white font-semibold hover:bg-rose-600 transition-all shadow-lg">
+                        Guardar ❤️
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Modal: Login (solo cuando se usa Firebase) -->
+    <div id="modal-login" class="fixed inset-0 z-[100] hidden bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm p-8 relative">
+            <h3 class="text-3xl font-romantic text-rose-600 mb-2 text-center">Solo nosotros dos</h3>
+            <p class="text-center text-sm text-gray-500 mb-6">Inicia sesión para editar</p>
+            <form id="form-login" class="space-y-4">
+                <div>
+                    <label for="login-email" class="block text-sm font-semibold text-gray-600 mb-1">Correo</label>
+                    <input type="email" id="login-email" required autocomplete="email" class="w-full p-3 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400">
+                </div>
+                <div>
+                    <label for="login-password" class="block text-sm font-semibold text-gray-600 mb-1">Contraseña</label>
+                    <input type="password" id="login-password" required autocomplete="current-password" class="w-full p-3 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400">
+                </div>
+                <p id="login-error" class="hidden text-sm text-red-500 text-center">Correo o contraseña incorrectos</p>
+                <div class="flex gap-4 pt-2">
+                    <button type="button" id="btn-cancel-login" class="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition-all">
+                        Cancelar
+                    </button>
+                    <button type="submit" class="flex-1 py-3 rounded-xl bg-rose-500 text-white font-semibold hover:bg-rose-600 transition-all shadow-lg">
+                        Entrar ❤️
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Selector oculto para reemplazar fotos de la galería -->
+    <input type="file" id="photo-replace-input" accept="image/*" class="hidden">
+
+    <!-- Aviso de modo edición -->
+    <div id="edit-banner" class="hidden fixed top-3 right-3 z-[70] bg-rose-600 text-white px-4 py-1.5 rounded-full shadow-lg text-xs">
+        ✏️ Editando: clic en textos o fotos de la galería
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <!-- Firebase: base de datos en la nube y en tiempo real (ver CONFIGURAR-FIREBASE.md) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <script src="assets/js/firebase-config.js"></script>
+    <script src="assets/js/store.js"></script>
+    <script src="assets/js/script.js"></script>
+    <script>
+        // Inicialización básica de AOS
+        AOS.init({
+            duration: 1000,
+            once: true
+        });
+    </script>
+</body>
+</html>
