@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
 
     // Fecha por defecto; se cambia desde el modo edición
-    const DEFAULT_START_DATE = '2023-01-01T00:00';
+    const DEFAULT_START_DATE = '2026-08-24T00:00';
     let startDate = new Date(DEFAULT_START_DATE);
 
     const startDateInput = document.getElementById('start-date-input');
