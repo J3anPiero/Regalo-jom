@@ -5,10 +5,11 @@
 // Sin él: guarda en el navegador (localStorage) con la misma interfaz.
 //
 // Datos:
-//   site      → { startDate, texts: {clave: texto}, ratings: {foto: n}, seeded }
-//   stories   → lista de historias
-//   locations → lista de lugares del mapa
-//   photos    → fotos reemplazadas de la galería (id = clave de la foto)
+//   site        → { startDate, texts: {clave: texto}, seeded, albumsSeeded }
+//   stories     → lista de historias
+//   locations   → lista de lugares del mapa
+//   albums      → salidas de "Momentos Felices" (título)
+//   albumPhotos → fotos de cada salida { albumId, src, caption, rating }
 
 (function () {
     function createFirebaseStore(config) {
@@ -39,12 +40,14 @@
                 );
             },
 
+            // Devuelve { id } del elemento creado
             addItem(name, data) {
                 return db.collection(name).add({ ...data, createdAt: Date.now() });
             },
 
+            // Actualiza un elemento existente sin cambiar su orden
             setItem(name, id, data) {
-                return db.collection(name).doc(id).set({ createdAt: Date.now(), ...data }, { merge: true });
+                return db.collection(name).doc(id).set(data, { merge: true });
             },
 
             deleteItem(name, id) {
@@ -130,7 +133,7 @@
                 const list = read(name, []);
                 const id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
                 list.push({ ...data, id, createdAt: Date.now() });
-                return write(name, list);
+                return write(name, list).then(() => ({ id }));
             },
 
             setItem(name, id, data) {

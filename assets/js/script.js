@@ -131,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderSyncStatus();
         if (!user && document.body.classList.contains('editing')) setEditMode(false);
         seedDefaultsIfNeeded();
+        seedAlbumIfNeeded();
     });
 
     formLogin.addEventListener('submit', async (e) => {
@@ -433,38 +434,264 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ==========================================
-    // ⭐ SECCIÓN DE PUNTUACIÓN DE FOTOS
+    // 📸 SECCIÓN MOMENTOS FELICES (SALIDAS CON FOTOS)
     // ==========================================
 
-    function renderRating(container) {
-        const photoId = container.getAttribute('data-photo-id');
-        const current = (site.ratings || {})[photoId] || 0;
+    // Primera salida: se guarda una sola vez y luego se puede editar o borrar
+    const DEFAULT_ALBUM = {
+        title: 'Chilokos',
+        photos: [
+            { oldId: 'chilokos-snack', textKey: 'photo-1-caption', src: 'assets/img/chilokos-snack.webp', caption: 'Nuestro snack preparado' },
+            { oldId: 'chilokos-bebida-morada', textKey: 'photo-2-caption', src: 'assets/img/chilokos-bebida-morada.webp', caption: 'La bebida morada' },
+            { oldId: 'chilokos-bebida-canela', textKey: 'photo-3-caption', src: 'assets/img/chilokos-bebida-canela.webp', caption: 'La bebida con canela' }
+        ]
+    };
 
-        container.innerHTML = `
+    let albums = [];
+    let albumPhotos = [];
+    let pendingAlbumRender = false;
+
+    const albumsList = document.getElementById('albums-list');
+    const albumsEmpty = document.getElementById('albums-empty');
+    const modalAlbum = document.getElementById('modal-album');
+    const formAlbum = document.getElementById('form-album');
+    const btnSaveAlbum = document.getElementById('btn-save-album');
+    const albumAddPhotosInput = document.getElementById('album-add-photos-input');
+    let albumToAddPhotos = null;
+
+    function starsHtml(photo) {
+        const current = photo.rating || 0;
+        return `
             <div class="flex justify-center gap-1 mt-2">
                 ${[1, 2, 3, 4, 5].map(n => `
-                    <button type="button" class="star-btn ${n <= current ? 'active' : ''}" data-value="${n}" aria-label="${n} estrella${n > 1 ? 's' : ''}">★</button>
+                    <button type="button" class="star-btn ${n <= current ? 'active' : ''}" data-photo-id="${photo.id}" data-value="${n}" aria-label="${n} estrella${n > 1 ? 's' : ''}">★</button>
                 `).join('')}
             </div>
             <p class="text-center text-sm text-gray-500 mt-1">
                 ${current ? `Puntuación: ${current}/5` : 'Sin puntuar'}
             </p>
         `;
+    }
 
-        container.querySelectorAll('.star-btn').forEach(star => {
-            star.addEventListener('click', () => {
-                if (!requireEdit()) return;
-                const value = parseInt(star.getAttribute('data-value'), 10);
-                // Pulsar la misma estrella otra vez quita la puntuación
-                Store.updateSite({ ratings: { [photoId]: current === value ? 0 : value } })
-                    .catch(showSaveError);
+    function renderAlbums() {
+        // No redibujar mientras alguien escribe un título o pie de foto
+        if (albumsList.contains(document.activeElement)) {
+            pendingAlbumRender = true;
+            return;
+        }
+
+        // Hasta que se guarde la primera salida, se muestra tal cual (sin editar)
+        const visibleAlbums = site.albumsSeeded
+            ? albums
+            : [{ id: null, title: DEFAULT_ALBUM.title }];
+        const photosOf = album => album.id
+            ? albumPhotos.filter(p => p.albumId === album.id)
+            : DEFAULT_ALBUM.photos.map(p => ({ ...p, id: null, rating: (site.ratings || {})[p.oldId] || 0 }));
+        const editing = document.body.classList.contains('editing') ? 'true' : 'false';
+
+        albumsEmpty.classList.toggle('hidden', visibleAlbums.length > 0);
+
+        albumsList.innerHTML = visibleAlbums.map(album => {
+            const photos = photosOf(album);
+            return `
+                <div>
+                    <div class="flex flex-col items-center mb-8">
+                        <h3 class="inline-edit album-title text-4xl font-romantic text-rose-600 text-center px-2" data-album-id="${album.id || ''}" contenteditable="${album.id ? editing : 'false'}">${escapeHtml(album.title)}</h3>
+                        <div class="w-24 h-1 bg-rose-300 rounded-full mt-3"></div>
+                        ${album.id ? `
+                        <div class="edit-only flex-wrap justify-center gap-2 mt-4">
+                            <button type="button" class="album-add-photos px-4 py-2 rounded-xl bg-rose-100 text-rose-600 text-sm font-semibold hover:bg-rose-200" data-album-id="${album.id}">📷 Agregar fotos</button>
+                            <button type="button" class="album-delete px-4 py-2 rounded-xl bg-gray-100 text-gray-600 text-sm font-semibold hover:bg-gray-200" data-album-id="${album.id}">🗑️ Eliminar salida</button>
+                        </div>` : ''}
+                    </div>
+                    ${photos.length === 0 ? `
+                        <p class="text-center text-gray-400 italic">Todavía no hay fotos de esta salida.</p>
+                    ` : `
+                    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
+                        ${photos.map(photo => `
+                            <div class="polaroid">
+                                <img src="${escapeHtml(photo.src)}" alt="${escapeHtml(photo.caption || album.title)}" class="w-full h-64 object-cover mb-4">
+                                <p class="inline-edit photo-caption font-romantic text-center text-xl text-gray-700 min-h-[1.75rem]" data-photo-id="${photo.id || ''}" contenteditable="${photo.id ? editing : 'false'}">${escapeHtml(photo.caption)}</p>
+                                ${starsHtml(photo)}
+                                ${photo.id ? `
+                                <div class="edit-only justify-center mt-3">
+                                    <button type="button" class="photo-delete px-3 py-1 rounded-lg bg-gray-100 text-gray-600 text-xs font-semibold hover:bg-gray-200" data-photo-id="${photo.id}">🗑️ Quitar foto</button>
+                                </div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>`}
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Guarda la salida de Chilokos y pasa sus puntuaciones y pies de foto anteriores
+    let seedingAlbums = false;
+    async function seedAlbumIfNeeded() {
+        if (!siteLoaded || site.albumsSeeded || seedingAlbums || !canEdit()) return;
+        seedingAlbums = true;
+        try {
+            const { id: albumId } = await Store.addItem('albums', { title: DEFAULT_ALBUM.title });
+            for (const photo of DEFAULT_ALBUM.photos) {
+                await Store.addItem('albumPhotos', {
+                    albumId,
+                    src: photo.src,
+                    caption: (site.texts || {})[photo.textKey] ?? photo.caption,
+                    rating: (site.ratings || {})[photo.oldId] || 0
+                });
+            }
+            await Store.updateSite({ albumsSeeded: true });
+        } catch (error) {
+            console.error('No se pudo guardar la primera salida:', error);
+        } finally {
+            seedingAlbums = false;
+        }
+    }
+
+    async function addPhotosToAlbum(albumId, files, button) {
+        const label = button.innerText;
+        button.disabled = true;
+        try {
+            for (let i = 0; i < files.length; i++) {
+                button.innerText = `⏳ ${i + 1}/${files.length}`;
+                const src = await fileToDataUrl(files[i]);
+                await Store.addItem('albumPhotos', { albumId, src, caption: '', rating: 0 });
+            }
+        } finally {
+            button.innerText = label;
+            button.disabled = false;
+        }
+    }
+
+    // Clics dentro de las salidas: estrellas y botones de edición
+    albumsList.addEventListener('click', (e) => {
+        const star = e.target.closest('.star-btn');
+        if (star) {
+            const photoId = star.getAttribute('data-photo-id');
+            if (!photoId || !requireEdit()) return;
+            const photo = albumPhotos.find(p => p.id === photoId);
+            const value = parseInt(star.getAttribute('data-value'), 10);
+            // Pulsar la misma estrella otra vez quita la puntuación
+            Store.setItem('albumPhotos', photoId, { rating: photo.rating === value ? 0 : value })
+                .catch(showSaveError);
+            return;
+        }
+
+        const addBtn = e.target.closest('.album-add-photos');
+        if (addBtn) {
+            if (!requireEdit()) return;
+            albumToAddPhotos = addBtn;
+            albumAddPhotosInput.value = '';
+            albumAddPhotosInput.click();
+            return;
+        }
+
+        const deleteAlbumBtn = e.target.closest('.album-delete');
+        if (deleteAlbumBtn) {
+            if (!requireEdit()) return;
+            const albumId = deleteAlbumBtn.getAttribute('data-album-id');
+            const album = albums.find(a => a.id === albumId);
+            if (!album || !confirm(`¿Eliminar la salida "${album.title}" y todas sus fotos?`)) return;
+            Promise.all(albumPhotos.filter(p => p.albumId === albumId).map(p => Store.deleteItem('albumPhotos', p.id)))
+                .then(() => Store.deleteItem('albums', albumId))
+                .catch(showSaveError);
+            return;
+        }
+
+        const deletePhotoBtn = e.target.closest('.photo-delete');
+        if (deletePhotoBtn) {
+            if (!requireEdit() || !confirm('¿Quitar esta foto?')) return;
+            Store.deleteItem('albumPhotos', deletePhotoBtn.getAttribute('data-photo-id')).catch(showSaveError);
+        }
+    });
+
+    // Al terminar de escribir un título o pie de foto, se guarda
+    albumsList.addEventListener('focusout', (e) => {
+        const title = e.target.closest('.album-title');
+        const caption = e.target.closest('.photo-caption');
+
+        if (title && title.getAttribute('data-album-id')) {
+            const albumId = title.getAttribute('data-album-id');
+            const value = title.textContent.trim();
+            const album = albums.find(a => a.id === albumId);
+            if (album && value && value !== album.title) {
+                Store.setItem('albums', albumId, { title: value }).catch(showSaveError);
+            }
+        }
+
+        if (caption && caption.getAttribute('data-photo-id')) {
+            const photoId = caption.getAttribute('data-photo-id');
+            const value = caption.textContent.trim();
+            const photo = albumPhotos.find(p => p.id === photoId);
+            if (photo && value !== (photo.caption || '')) {
+                Store.setItem('albumPhotos', photoId, { caption: value }).catch(showSaveError);
+            }
+        }
+
+        // Si llegaron cambios mientras se escribía, dibujarlos ahora
+        setTimeout(() => {
+            if (pendingAlbumRender && !albumsList.contains(document.activeElement)) {
+                pendingAlbumRender = false;
+                renderAlbums();
+            }
+        }, 0);
+    });
+
+    // Enter en un título o pie de foto termina la edición en vez de saltar de línea
+    albumsList.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target.closest('.inline-edit')) {
+            e.preventDefault();
+            e.target.blur();
+        }
+    });
+
+    albumAddPhotosInput.addEventListener('change', () => {
+        const files = [...albumAddPhotosInput.files];
+        if (!files.length || !albumToAddPhotos) return;
+        addPhotosToAlbum(albumToAddPhotos.getAttribute('data-album-id'), files, albumToAddPhotos)
+            .catch(showSaveError);
+    });
+
+    document.getElementById('btn-add-album').addEventListener('click', () => {
+        if (!requireEdit()) return;
+        formAlbum.reset();
+        modalAlbum.classList.remove('hidden');
+    });
+
+    document.getElementById('btn-cancel-album').addEventListener('click', () => {
+        modalAlbum.classList.add('hidden');
+    });
+
+    formAlbum.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const files = [...document.getElementById('album-photos').files];
+
+        btnSaveAlbum.disabled = true;
+        btnSaveAlbum.innerText = '⏳';
+        try {
+            const { id } = await Store.addItem('albums', {
+                title: document.getElementById('album-title').value.trim()
             });
-        });
-    }
+            await addPhotosToAlbum(id, files, btnSaveAlbum);
+            formAlbum.reset();
+            modalAlbum.classList.add('hidden');
+        } catch (error) {
+            showSaveError(error);
+        } finally {
+            btnSaveAlbum.disabled = false;
+            btnSaveAlbum.innerText = 'Guardar ❤️';
+        }
+    });
 
-    function renderRatings() {
-        document.querySelectorAll('.photo-rating').forEach(renderRating);
-    }
+    Store.watchList('albums', list => {
+        albums = list;
+        renderAlbums();
+    });
+
+    Store.watchList('albumPhotos', list => {
+        albumPhotos = list;
+        renderAlbums();
+    });
 
     // ==========================================
     // 📖 SECCIÓN DE HISTORIAS
@@ -620,51 +847,14 @@ document.addEventListener('DOMContentLoaded', () => {
         btnEditMode.classList.toggle('bg-rose-500', editing);
         btnEditMode.classList.toggle('text-white', editing);
         editBanner.classList.toggle('hidden', !editing);
+        // Títulos y pies de foto de las salidas se vuelven editables
+        renderAlbums();
     }
 
     btnEditMode.addEventListener('click', () => {
         const editing = !document.body.classList.contains('editing');
         if (editing && !requireEdit()) return;
         setEditMode(editing);
-    });
-
-    // Fotos de la galería: se pueden reemplazar en modo edición
-    const galleryPhotos = document.querySelectorAll('[data-photo-key]');
-    const defaultPhotos = {};
-    galleryPhotos.forEach(img => {
-        defaultPhotos[img.getAttribute('data-photo-key')] = img.getAttribute('src');
-    });
-
-    Store.watchList('photos', list => {
-        const replaced = Object.fromEntries(list.map(p => [p.id, p.src]));
-        galleryPhotos.forEach(img => {
-            const key = img.getAttribute('data-photo-key');
-            img.src = replaced[key] || defaultPhotos[key];
-        });
-    });
-
-    const photoReplaceInput = document.getElementById('photo-replace-input');
-    let photoToReplace = null;
-
-    galleryPhotos.forEach(img => {
-        img.addEventListener('click', () => {
-            if (!document.body.classList.contains('editing')) return;
-            photoToReplace = img;
-            photoReplaceInput.value = '';
-            photoReplaceInput.click();
-        });
-    });
-
-    photoReplaceInput.addEventListener('change', async () => {
-        const file = photoReplaceInput.files[0];
-        if (!file || !photoToReplace || !requireEdit()) return;
-
-        try {
-            const src = await fileToDataUrl(file);
-            await Store.setItem('photos', photoToReplace.getAttribute('data-photo-key'), { src });
-        } catch (error) {
-            showSaveError(error);
-        }
     });
 
     // ==========================================
@@ -679,9 +869,10 @@ document.addEventListener('DOMContentLoaded', () => {
         showStartDate();
         updateTimer();
         applyTexts();
-        renderRatings();
+        renderAlbums();
         renderMarkers();
         seedDefaultsIfNeeded();
+        seedAlbumIfNeeded();
     });
 
     renderSyncStatus();

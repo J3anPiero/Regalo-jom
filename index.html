@@ -82,9 +82,14 @@
         body.editing [data-editable]:focus {
             outline-color: #e11d48;
         }
-        body.editing [data-photo-key] {
-            cursor: pointer;
-            outline: 3px dashed #fda4af;
+        body.editing .inline-edit {
+            outline: 2px dashed #fda4af;
+            outline-offset: 4px;
+            border-radius: 6px;
+            cursor: text;
+        }
+        body.editing .inline-edit:focus {
+            outline-color: #e11d48;
         }
     </style>
 </head>
@@ -237,32 +242,20 @@
         <h2 class="text-5xl font-romantic text-center text-rose-600 mb-4" data-aos="fade-up">
             Momentos Felices
         </h2>
-        <p data-editable="gallery-intro" class="text-center text-gray-600 mb-16" data-aos="fade-up">
-            Lo que comimos en nuestra primera salida. ¡Puntúa cada foto con estrellas!
+        <p data-editable="gallery-intro" class="text-center text-gray-600 mb-10" data-aos="fade-up">
+            Cada lugar al que fuimos, con lo que comimos. ¡Puntúa cada foto con estrellas!
         </p>
-        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-8">
-            <!-- Photo 1 -->
-            <div class="polaroid" data-aos="flip-left">
-                <img src="assets/img/chilokos-snack.webp"
-                     alt="Snack preparado en Chilokos" data-photo-key="photo-1" class="w-full h-64 object-cover mb-4">
-                <p data-editable="photo-1-caption" class="font-romantic text-center text-xl text-gray-700">Nuestro snack preparado</p>
-                <div class="photo-rating" data-photo-id="chilokos-snack"></div>
-            </div>
-            <!-- Photo 2 -->
-            <div class="polaroid" data-aos="flip-left" data-aos-delay="200">
-                <img src="assets/img/chilokos-bebida-morada.webp"
-                     alt="Bebida morada en Chilokos" data-photo-key="photo-2" class="w-full h-64 object-cover mb-4">
-                <p data-editable="photo-2-caption" class="font-romantic text-center text-xl text-gray-700">La bebida morada</p>
-                <div class="photo-rating" data-photo-id="chilokos-bebida-morada"></div>
-            </div>
-            <!-- Photo 3 -->
-            <div class="polaroid" data-aos="flip-left" data-aos-delay="400">
-                <img src="assets/img/chilokos-bebida-canela.webp"
-                     alt="Bebida con canela en Chilokos" data-photo-key="photo-3" class="w-full h-64 object-cover mb-4">
-                <p data-editable="photo-3-caption" class="font-romantic text-center text-xl text-gray-700">La bebida con canela</p>
-                <div class="photo-rating" data-photo-id="chilokos-bebida-canela"></div>
-            </div>
+        <div class="flex justify-center mb-12">
+            <button id="btn-add-album" class="bg-rose-500 text-white px-6 py-2 rounded-full font-semibold hover:bg-rose-600 transition-all shadow-lg flex items-center gap-2">
+                <span>🍽️</span> Agregar Salida
+            </button>
         </div>
+
+        <!-- Las salidas se crean desde el botón (ver script.js) -->
+        <p id="albums-empty" class="hidden text-center text-gray-400 italic">
+            Todavía no hay salidas. ¡Agrega la primera!
+        </p>
+        <div id="albums-list" class="space-y-16"></div>
     </section>
 
     <!-- Section 5: Nuestros Deseos y Promesas -->
@@ -428,12 +421,37 @@
         </div>
     </div>
 
-    <!-- Selector oculto para reemplazar fotos de la galería -->
-    <input type="file" id="photo-replace-input" accept="image/*" class="hidden">
+    <!-- Modal: Add Album (salida) -->
+    <div id="modal-album" class="fixed inset-0 z-[100] hidden bg-black bg-opacity-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md p-8 relative">
+            <h3 class="text-3xl font-romantic text-rose-600 mb-6 text-center">Nueva Salida</h3>
+            <form id="form-album" class="space-y-4">
+                <div>
+                    <label for="album-title" class="block text-sm font-semibold text-gray-600 mb-1">Nombre del lugar</label>
+                    <input type="text" id="album-title" required class="w-full p-3 rounded-xl border border-rose-200 focus:outline-none focus:ring-2 focus:ring-rose-400" placeholder="Ej: Chilokos">
+                </div>
+                <div>
+                    <label for="album-photos" class="block text-sm font-semibold text-gray-600 mb-1">Fotos (puedes elegir varias)</label>
+                    <input type="file" id="album-photos" accept="image/*" multiple class="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-rose-100 file:text-rose-600 file:font-semibold hover:file:bg-rose-200">
+                </div>
+                <div class="flex gap-4 pt-4">
+                    <button type="button" id="btn-cancel-album" class="flex-1 py-3 rounded-xl bg-gray-100 text-gray-600 font-semibold hover:bg-gray-200 transition-all">
+                        Cancelar
+                    </button>
+                    <button type="submit" id="btn-save-album" class="flex-1 py-3 rounded-xl bg-rose-500 text-white font-semibold hover:bg-rose-600 transition-all shadow-lg">
+                        Guardar ❤️
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Selector oculto para agregar fotos a una salida existente -->
+    <input type="file" id="album-add-photos-input" accept="image/*" multiple class="hidden">
 
     <!-- Aviso de modo edición -->
     <div id="edit-banner" class="hidden fixed top-3 right-3 z-[70] bg-rose-600 text-white px-4 py-1.5 rounded-full shadow-lg text-xs">
-        ✏️ Editando: clic en textos o fotos de la galería
+        ✏️ Editando: haz clic en un texto para cambiarlo
     </div>
 
     <!-- Scripts -->
