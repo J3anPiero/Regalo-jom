@@ -68,8 +68,7 @@
         };
     }
 
-    function createLocalStore() {
-        const PREFIX = 'our_journey_v3_';
+    function createLocalStore(PREFIX) {
         const listeners = {};
 
         function read(key, fallback) {
@@ -161,12 +160,28 @@
 
             signOut() {
                 return Promise.resolve();
+            },
+
+            // Borra todo lo guardado por esta página en el navegador
+            clearAll() {
+                Object.keys(localStorage)
+                    .filter(key => key.startsWith(PREFIX))
+                    .forEach(key => localStorage.removeItem(key));
             }
         };
     }
 
+    // Modo prueba (?prueba en la dirección): nunca usa Firebase y guarda
+    // aparte, solo en este navegador, para no tocar los datos reales
+    const testMode = new URLSearchParams(location.search).has('prueba');
     const config = window.FIREBASE_CONFIG;
-    window.Store = config && typeof firebase !== 'undefined'
-        ? createFirebaseStore(config)
-        : createLocalStore();
+
+    if (testMode) {
+        window.Store = createLocalStore('our_journey_prueba_');
+    } else if (config && typeof firebase !== 'undefined') {
+        window.Store = createFirebaseStore(config);
+    } else {
+        window.Store = createLocalStore('our_journey_v3_');
+    }
+    window.Store.testMode = testMode;
 })();

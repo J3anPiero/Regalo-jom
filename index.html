@@ -453,6 +453,12 @@
     <!-- Selector oculto para agregar fotos a una salida existente -->
     <input type="file" id="album-add-photos-input" accept="image/*" multiple class="hidden">
 
+    <!-- Aviso de modo prueba (?prueba en la dirección) -->
+    <div id="test-banner" class="hidden fixed bottom-3 left-1/2 -translate-x-1/2 z-[70] bg-amber-400 text-amber-950 pl-4 pr-2 py-1.5 rounded-full shadow-lg text-xs items-center gap-3">
+        <span>🧪 Modo prueba: nada se guarda en la nube</span>
+        <button id="btn-clear-test" class="bg-amber-950 text-amber-50 px-3 py-1 rounded-full font-semibold">Borrar pruebas</button>
+    </div>
+
     <!-- Aviso de modo edición -->
     <div id="edit-banner" class="hidden fixed top-3 right-3 z-[70] bg-rose-600 text-white px-4 py-1.5 rounded-full shadow-lg text-xs">
         ✏️ Editando: haz clic en un texto para cambiarlo

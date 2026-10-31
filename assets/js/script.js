@@ -115,8 +115,21 @@ document.addEventListener('DOMContentLoaded', () => {
         return false;
     }
 
+    if (Store.testMode) {
+        const testBanner = document.getElementById('test-banner');
+        testBanner.classList.remove('hidden');
+        testBanner.classList.add('flex');
+        document.getElementById('btn-clear-test').addEventListener('click', () => {
+            if (!confirm('¿Borrar todo lo que agregaste en el modo prueba?')) return;
+            Store.clearAll();
+            location.reload();
+        });
+    }
+
     function renderSyncStatus() {
-        if (!Store.remote) {
+        if (Store.testMode) {
+            syncStatus.innerText = '🧪 Modo prueba (no se guarda en la nube)';
+        } else if (!Store.remote) {
             syncStatus.innerText = '💾 Guardado solo en este navegador';
         } else if (currentUser) {
             syncStatus.innerText = `☁️ Conectado como ${currentUser.email}`;
