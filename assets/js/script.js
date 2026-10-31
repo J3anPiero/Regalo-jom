@@ -816,13 +816,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     editables.forEach(el => {
         const key = el.getAttribute('data-editable');
-        defaultTexts[key] = el.textContent;
+        // Quitar la sangría del HTML para que no se vea como saltos de línea
+        defaultTexts[key] = el.textContent.replace(/\s+/g, ' ').trim();
 
-        // Se guarda medio segundo después de dejar de escribir
+        // Se guarda medio segundo después de dejar de escribir.
+        // innerText conserva los saltos de línea hechos con Enter.
         el.addEventListener('input', () => {
             clearTimeout(saveTimers[key]);
             saveTimers[key] = setTimeout(() => {
-                Store.updateSite({ texts: { [key]: el.textContent } }).catch(showSaveError);
+                const value = el.innerText.trim();
+                el.dataset.shown = value;
+                Store.updateSite({ texts: { [key]: value } }).catch(showSaveError);
             }, 600);
         });
     });
@@ -833,8 +837,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // No pisar lo que alguien está escribiendo en este momento
             if (document.activeElement === el) return;
             const key = el.getAttribute('data-editable');
-            const value = texts[key] ?? defaultTexts[key];
-            if (el.textContent !== value) el.textContent = value;
+            const value = (texts[key] ?? defaultTexts[key]).trim();
+            if (el.dataset.shown !== value) {
+                el.textContent = value;
+                el.dataset.shown = value;
+            }
         });
     }
 

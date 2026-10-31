@@ -73,6 +73,10 @@
         body.editing .edit-only {
             display: flex !important;
         }
+        /* Mostrar los saltos de línea que se escriben con Enter */
+        [data-editable] {
+            white-space: pre-line;
+        }
         body.editing [data-editable] {
             outline: 2px dashed #fda4af;
             outline-offset: 4px;
